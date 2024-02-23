@@ -1,0 +1,7 @@
+name;description;Type;tenant;vrf;mac;l2_unknown_unicast;l3_unknown_multicast;multi_dest_flood;enablePim;arp_flood;unicast_routing;limit_ip_learning_to_subnet;endpoint_data_plane_learning;endpoint_move_detect_mode;igmp_snoop_policy;endpoint_retention_policy;igmpInterfacePolicy;is_bd_legacy;legacy_bd_vlan;route_control_profile;l3out_for_route_control;name_alias;status
+BD-Web;VLAN-2;L3;PROD_TN;PROD_VRF;0000.0C9F.F002;flood;flood;bd-flood;no;yes;no;yes;yes;garp;;;;no;;;;;
+BD-APP;VLAN-3;L3;PROD_TN;PROD_VRF;0000.0C9F.F003;flood;flood;bd-flood;no;yes;no;yes;yes;garp;;;;no;;;;;
+BD-DB;VLAN-4;L3;PROD_TN;PROD_VRF;0000.0C9F.F004;flood;flood;bd-flood;no;yes;no;yes;yes;garp;;;;no;;;;;
+BD-VLAN_5;VLAN-5;L3;PROD_TN;PROD_VRF;0000.0C9F.F005;flood;flood;bd-flood;no;yes;no;yes;yes;garp;;;;no;;;;;
+BD-BKP_VLAN_6;VLAN-6;L3;PROD_TN;PROD_VRF;0000.0C9F.F006;flood;flood;bd-flood;no;yes;no;yes;yes;garp;;;;no;;;;;
+BD-NFS_VLAN_7;VLAN-7;L3;PROD_TN;PROD_VRF;0000.0C9F.F007;flood;flood;bd-flood;no;yes;no;yes;yes;garp;;;;no;;;;;

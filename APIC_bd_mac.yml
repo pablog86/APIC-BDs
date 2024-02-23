@@ -1,0 +1,170 @@
+#ansible-galaxy collection install cisco.aci --ignore-certs
+#pip3 install jmespath
+#ANSIBLE_HOST_KEY_CHECKING=False ANSIBLE_PERSISTENT_COMMAND_TIMEOUT=60 ansible-playbook -i host.yml APIC_bd_mac.yml -t bd,subnet,bd_l3out -v
+
+- hosts: APIC
+  gather_facts: no
+
+  vars:
+    apic_vars: &apic_vars
+      host: "{{ansible_host}}"
+      username: "{{ansible_user}}"
+      password: "{{ansible_ssh_pass}}"
+      validate_certs: no
+    bd_state: present
+    subnet_state: present
+    l3out_asc_state: present
+
+  tasks:
+  - read_csv:
+      path: aci_build_bd.csv
+      delimiter: ;
+    register: macs
+    tags:
+      - bd
+      - mac
+  - read_csv:
+      path: aci_build_subnet.csv
+      delimiter: ;
+    register: subnets
+    tags:
+      - subnet
+  - read_csv:
+      path: aci_build_l3out_asc.csv
+      delimiter: ;
+    register: l3out_asc
+    tags:
+      - bd_l3out
+
+  - set_fact:
+      tenant_in_sheet: "{{ macs.list |map(attribute='tenant')|list|unique }}" 
+      bd_names: "{{ macs.list | map(attribute='name') | list }}"
+    tags:
+      - mac
+
+  - name: Add Bridge Domain
+    cisco.aci.aci_bd:
+      <<: *apic_vars
+      tenant: "{{ bd.tenant }}"
+      bd: "{{ bd.name }}"
+      description: "{{bd.description}}"
+      mac_address: "{{ bd.mac }}"
+      vrf: "{{ bd.vrf }}"
+      enable_multicast: "{{bd.enablePim}}"
+      enable_routing: "{{bd.unicast_routing}}"
+      endpoint_move_detect: "{{bd.endpoint_move_detect_mode}}"
+      igmp_snoop_policy: "{{bd.igmp_snoop_policy}}"
+      l2_unknown_unicast: "{{bd.l2_unknown_unicast}}"
+      arp_flooding: "{{bd.arp_flood}}"
+      l3_unknown_multicast: "{{bd.l3_unknown_multicast}}"
+      limit_ip_learn: "{{bd.limit_ip_learning_to_subnet}}"
+      multi_dest: "{{bd.multi_dest_flood}}"
+      route_profile: "{{bd.route_control_profile}}"
+      route_profile_l3out: "{{bd.l3out_for_route_control}}"
+      endpoint_retention_policy: "{{bd.endpoint_retention_policy}}"
+      state: "{{bd_state}}"
+    delegate_to: localhost
+    register: query_result
+    loop: "{{ macs.list }}"
+    loop_control:
+      loop_var: bd
+    tags:
+      - bd
+  
+  - name: Create a subnet with options
+    cisco.aci.aci_bd_subnet:
+      <<: *apic_vars
+      tenant: "{{ subnet.tenant }}"
+      bd: "{{ subnet.bridge_domain }}"
+      #subnet_name: "{{ subnet.description }}"
+      gateway: "{{ (subnet.bd_subnet| split('/') | list )[0] }}"
+      mask: "{{ (subnet.bd_subnet| split('/') | list )[1] }}"
+      description: "{{ subnet.description }}"
+      scope: "{{ subnet.subnet_scope }}"
+      subnet_control: "{{ subnet.subnet_control }}"
+      #route_profile_l3_out: 
+      #route_profile: 
+      preferred: "{{ subnet.is_primary_address }}"
+      state: "{{subnet_state}}"
+    delegate_to: localhost
+    register: query_result
+    loop: "{{ subnets.list }}"
+    loop_control:
+      loop_var: subnet
+    tags:
+      - subnet
+
+  - name: Bind Bridge Domain to L3Out
+    cisco.aci.aci_bd_to_l3out:
+      <<: *apic_vars
+      bd: "{{bd_l3out.bd_name}}"
+      l3out: "{{bd_l3out.l3out_name}}"
+      tenant: "{{bd_l3out.tenant}}"
+      state: "{{l3out_asc_state}}"
+    delegate_to: localhost
+    register: query_result
+    loop: "{{ l3out_asc.list }}"
+    loop_control:
+      loop_var: bd_l3out
+    tags:
+      - bd_l3out
+
+#####
+  - name: Query all BDs 
+    cisco.aci.aci_bd:
+      <<: *apic_vars
+      tenant: "{{ tenant }}"
+      state: query
+    delegate_to: localhost
+    register: query_result_bd
+    loop: "{{ tenant_in_sheet }}"
+    loop_control:
+      loop_var: tenant
+    tags:
+      - mac
+
+  - name: Compare BDs lists from csv with fvBD.attributes.name per fvTenant
+    debug:
+      msg: "{{ item.0 }} tiene las BDs {{ bd_names | intersect(item.1) }} que se encuentran en la lista aci_bds."
+    with_nested:
+      - "{{ query_result_bd.results | map(attribute='current') | flatten | map(attribute='fvTenant') | map(attribute='attributes') | map(attribute='name') | list }}"
+      - "{{ query_result_bd.results | map(attribute='current') | flatten | map(attribute='fvTenant') | map(attribute='children') | flatten | map(attribute='fvBD') | map(attribute='attributes') | map(attribute='name') | list }}"
+    register: bd_comparison
+    vars:
+      bd_names: "{{ bd_names }}"
+    when: "{{ bd_names | intersect(item.1) | length > 0 }}"
+    tags: 
+      - mac
+
+  - name: List of elements item
+    set_fact:
+      tenant_db_list: "{{ bd_comparison.results | json_query('[].item') }}"
+    tags: 
+      - mac
+
+  - name: Transform Tenant_BD list
+    set_fact:
+      transformed_list: "{{ tenant_db_list | map('join', '/') | list }}"
+    tags: 
+      - mac
+
+  - name: Print transformed list
+    debug:
+      var: transformed_list
+    tags: 
+      - mac
+
+  - name: Update mac attribute in existing BDs
+    cisco.aci.aci_bd:
+      <<: *apic_vars
+      tenant: "{{ bd.tenant }}"
+      bd: "{{ bd.name }}"
+      mac: "{{ bd.mac }}"
+      state: "{{ bd_state }}"
+    loop: "{{ macs.list }}"
+    loop_control:
+      loop_var: bd
+    #when: bd.name in (bd_comparison.results | map(attribute='item') | flatten | list)  #funciona un tenant a la vez porque no puede comparar el par tenant/bd
+    when: "'{{ bd.tenant }}/{{ bd.name }}' in transformed_list | join('/')"
+    tags:
+      - mac
