@@ -4,6 +4,7 @@
 
 - hosts: APIC
   gather_facts: no
+  connection: local
 
   vars:
     apic_vars: &apic_vars
