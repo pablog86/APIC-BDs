@@ -21,6 +21,7 @@
       path: aci_build_bd.csv
       delimiter: ;
     register: macs
+    connection: local
     tags:
       - bd
       - mac
@@ -28,12 +29,14 @@
       path: aci_build_subnet.csv
       delimiter: ;
     register: subnets
+    connection: local
     tags:
       - subnet
   - read_csv:
       path: aci_build_l3out_asc.csv
       delimiter: ;
     register: l3out_asc
+    connection: local
     tags:
       - bd_l3out
 
