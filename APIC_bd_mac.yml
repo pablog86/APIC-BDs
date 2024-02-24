@@ -10,7 +10,6 @@
       host: "{{ansible_host}}"
       username: "{{ansible_user}}"
       password: "{{ansible_ssh_pass}}"
-      connection: "{{ansible_connection}}"
       validate_certs: no
     bd_state: present
     subnet_state: present
