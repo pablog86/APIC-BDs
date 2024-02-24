@@ -19,6 +19,7 @@
   - read_csv:
       path: aci_build_bd.csv
       delimiter: ;
+    delegate_to: localhost
     register: macs
     tags:
       - bd
@@ -26,12 +27,14 @@
   - read_csv:
       path: aci_build_subnet.csv
       delimiter: ;
+    delegate_to: localhost
     register: subnets
     tags:
       - subnet
   - read_csv:
       path: aci_build_l3out_asc.csv
       delimiter: ;
+    delegate_to: localhost
     register: l3out_asc
     tags:
       - bd_l3out
